@@ -1,6 +1,6 @@
 import { parseArgs } from '@std/cli/parse-args'
 import { serveDir } from '@std/http/file-server'
-import { route, type Route } from '@std/http/unstable-route'
+import { type Route, route } from '@std/http/unstable-route'
 
 const defaultPort = 8080
 
