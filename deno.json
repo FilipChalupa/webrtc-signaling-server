@@ -2,5 +2,9 @@
   "imports": {
     "@std/cli": "jsr:@std/cli@^1.0.15",
     "@std/http": "jsr:@std/http@^1.0.13"
+  },
+  "tasks": {
+    "start": "deno run --allow-net --allow-read src/server.ts",
+    "dev": "denon run --allow-net --allow-read src/server.ts"
   }
 }
