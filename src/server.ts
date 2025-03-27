@@ -27,6 +27,13 @@ const bodyToText = async (body: ReadableStream<Uint8Array>) => {
 	return result
 }
 
+const createApiResponse = (data: unknown) =>
+	Response.json(data, {
+		headers: {
+			'Access-Control-Allow-Origin': '*',
+		},
+	})
+
 const routes: Route[] = [
 	{
 		method: ['GET', 'POST'],
@@ -75,9 +82,9 @@ const routes: Route[] = [
 						payload,
 					}])
 				}
-				return Response.json({ ok: true })
+				return createApiResponse({ ok: true })
 			}
-			return Response.json({
+			return createApiResponse({
 				ok: true,
 				data: (await kv.get([type, side])).value,
 			})
