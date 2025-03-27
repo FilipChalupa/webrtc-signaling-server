@@ -10,7 +10,79 @@ const port = (() => {
 	return numberPort && !Number.isNaN(numberPort) ? numberPort : defaultPort
 })()
 
+const kv = await Deno.openKv()
+
+const bodyToText = async (body: ReadableStream<Uint8Array>) => {
+	const reader = body.getReader()
+	const decoder = new TextDecoder()
+	let result = ''
+	while (true) {
+		const { done, value } = await reader.read()
+		if (done) {
+			break
+		}
+		result += decoder.decode(value, { stream: true })
+	}
+	result += decoder.decode()
+	return result
+}
+
 const routes: Route[] = [
+	{
+		method: ['GET', 'POST'],
+		pattern: new URLPattern({
+			pathname:
+				'/api/v1/:side(initiator|responder)/:type(local-description|ice-candidate)',
+		}),
+		handler: async (request, patternResult) => {
+			const method = request.method === 'POST' ? 'POST' : 'GET'
+			const side = patternResult?.pathname.groups.side === 'initiator'
+				? 'initiator'
+				: 'responder'
+			const type = patternResult?.pathname.groups.type === 'local-description'
+				? 'local-description'
+				: 'ice-candidate'
+			if (method === 'POST') {
+				if (!request.body) {
+					throw new Error('No body')
+				}
+				const payload = bodyToText(request.body)
+				if (type === 'local-description') {
+					if (side === 'initiator') {
+						await kv.delete(['local-description', 'responder'])
+						await kv.delete(['ice-candidate', 'initiator'])
+						await kv.delete(['ice-candidate', 'responder'])
+					} else {
+						await kv.delete(['local-description', 'initiator'])
+					}
+					await kv.set(['local-description', side], {
+						createdAt: new Date().toISOString(),
+						payload,
+					})
+				} else {
+					const now = new Date()
+					const previousValue = await kv.get(['ice-candidate', side])
+					const previousNotSoOldItems = previousValue.value
+						? (previousValue.value as Array<{
+							createdAt: string
+							payload: string
+						}>).filter(({ createdAt }) =>
+							(now.getTime() - new Date(createdAt).getTime()) < 1000 * 60 * 5 // 5 minutes
+						)
+						: []
+					await kv.set(['ice-candidate', side], [...previousNotSoOldItems, {
+						createdAt: new Date().toISOString(),
+						payload,
+					}])
+				}
+				return Response.json({ ok: true })
+			}
+			return Response.json({
+				ok: true,
+				data: (await kv.get([type, side])).value,
+			})
+		},
+	},
 	{
 		pattern: new URLPattern({ pathname: '/*' }),
 		handler: (request: Request) =>
