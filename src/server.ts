@@ -53,7 +53,7 @@ const routes: Route[] = [
 				if (!request.body) {
 					throw new Error('No body')
 				}
-				const payload = bodyToText(request.body)
+				const payload = await bodyToText(request.body)
 				if (type === 'local-description') {
 					if (side === 'initiator') {
 						await kv.delete(['local-description', 'responder'])
