@@ -26,3 +26,7 @@ Two clients are involved. Let's call them `initiator` and `responder`.
    `/api/v1/my-room/responder/ice-candidate` respectively.
 1. The other client periodically polls the
    `/api/v1/my-room/initiator/ice-candidate` for new ICE candidates.
+
+## Client side implementation
+
+[www.npmjs.com/package/react-device-portal](https://www.npmjs.com/package/react-device-portal)
