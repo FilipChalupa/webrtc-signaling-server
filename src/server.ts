@@ -39,10 +39,14 @@ const routes: Route[] = [
 		method: ['GET', 'POST'],
 		pattern: new URLPattern({
 			pathname:
-				'/api/v1/:side(initiator|responder)/:type(local-description|ice-candidate)',
+				'/api/v1/:room/:side(initiator|responder)/:type(local-description|ice-candidate)',
 		}),
 		handler: async (request, patternResult) => {
 			const method = request.method === 'POST' ? 'POST' : 'GET'
+			const room = patternResult?.pathname.groups.room
+			if (!room) {
+				throw new Error('Missing room')
+			}
 			const side = patternResult?.pathname.groups.side === 'initiator'
 				? 'initiator'
 				: 'responder'
@@ -56,19 +60,24 @@ const routes: Route[] = [
 				const payload = await bodyToText(request.body)
 				if (type === 'local-description') {
 					if (side === 'initiator') {
-						await kv.delete(['local-description', 'responder'])
-						await kv.delete(['ice-candidate', 'initiator'])
-						await kv.delete(['ice-candidate', 'responder'])
+						await kv.delete(['v1', room, 'local-description', 'responder'])
+						await kv.delete(['v1', room, 'ice-candidate', 'initiator'])
+						await kv.delete(['v1', room, 'ice-candidate', 'responder'])
 					} else {
-						await kv.delete(['local-description', 'initiator'])
+						await kv.delete(['v1', room, 'local-description', 'initiator'])
 					}
-					await kv.set(['local-description', side], {
+					await kv.set(['v1', room, 'local-description', side], {
 						createdAt: new Date().toISOString(),
 						payload,
 					})
 				} else {
 					const now = new Date()
-					const previousValue = await kv.get(['ice-candidate', side])
+					const previousValue = await kv.get([
+						'v1',
+						room,
+						'ice-candidate',
+						side,
+					])
 					const previousNotSoOldItems = previousValue.value
 						? (previousValue.value as Array<{
 							createdAt: string
@@ -77,16 +86,19 @@ const routes: Route[] = [
 							(now.getTime() - new Date(createdAt).getTime()) < 1000 * 60 * 5 // 5 minutes
 						)
 						: []
-					await kv.set(['ice-candidate', side], [...previousNotSoOldItems, {
-						createdAt: new Date().toISOString(),
-						payload,
-					}])
+					await kv.set(['v1', room, 'ice-candidate', side], [
+						...previousNotSoOldItems,
+						{
+							createdAt: new Date().toISOString(),
+							payload,
+						},
+					])
 				}
 				return createApiResponse({ ok: true })
 			}
 			return createApiResponse({
 				ok: true,
-				data: (await kv.get([type, side])).value,
+				data: (await kv.get(['v1', room, type, side])).value,
 			})
 		},
 	},
