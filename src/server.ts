@@ -72,12 +72,8 @@ const routes: Route[] = [
 					})
 				} else {
 					const now = new Date()
-					const previousValue = await kv.get([
-						'v1',
-						room,
-						'ice-candidate',
-						side,
-					])
+					const key = ['v1', room, 'ice-candidate', side]
+					const previousValue = await kv.get(key)
 					const previousNotSoOldItems = previousValue.value
 						? (previousValue.value as Array<{
 							createdAt: string
@@ -86,7 +82,7 @@ const routes: Route[] = [
 							(now.getTime() - new Date(createdAt).getTime()) < 1000 * 60 * 5 // 5 minutes
 						)
 						: []
-					await kv.set(['v1', room, 'ice-candidate', side], [
+					await kv.set(key, [
 						...previousNotSoOldItems,
 						{
 							createdAt: new Date().toISOString(),
