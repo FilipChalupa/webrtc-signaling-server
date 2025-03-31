@@ -71,24 +71,32 @@ const routes: Route[] = [
 						payload,
 					})
 				} else {
-					const now = new Date()
-					const key = ['v1', room, 'ice-candidate', side]
-					const previousValue = await kv.get(key)
-					const previousNotSoOldItems = previousValue.value
-						? (previousValue.value as Array<{
-							createdAt: string
-							payload: string
-						}>).filter(({ createdAt }) =>
-							(now.getTime() - new Date(createdAt).getTime()) < 1000 * 60 * 5 // 5 minutes
-						)
-						: []
-					await kv.set(key, [
-						...previousNotSoOldItems,
-						{
-							createdAt: new Date().toISOString(),
-							payload,
-						},
-					])
+					while (true) {
+						const now = new Date()
+						const key = ['v1', room, 'ice-candidate', side]
+						const previousValue = await kv.get(key)
+						const previousNotSoOldItems = previousValue.value
+							? (previousValue.value as Array<{
+								createdAt: string
+								payload: string
+							}>).filter(({ createdAt }) =>
+								(now.getTime() - new Date(createdAt).getTime()) < 1000 * 60 * 5 // 5 minutes
+							)
+							: []
+						const setResponse = await kv.atomic().check(previousValue).set(
+							key,
+							[
+								...previousNotSoOldItems,
+								{
+									createdAt: new Date().toISOString(),
+									payload,
+								},
+							],
+						).commit()
+						if (setResponse.ok) {
+							break
+						}
+					}
 				}
 				return createApiResponse({ ok: true })
 			}
